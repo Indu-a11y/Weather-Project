@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculator with History</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Calculator Card -->
+        <div class="calculator">
+            <h1 class="title">🧮 Calculator</h1>
+
+            <!-- Display Screen -->
+            <div class="display">
+                <input type="text" id="display" readonly placeholder="0">
+            </div>
+
+            <!-- Calculator Buttons -->
+            <div class="buttons">
+                <button class="btn special" onclick="clearDisplay()">C</button>
+                <button class="btn special" onclick="backspace()">←</button>
+                <button class="btn special" onclick="appendToDisplay('%')">%</button>
+                <button class="btn operator" onclick="appendToDisplay('/')">/</button>
+
+                <button class="btn number" onclick="appendToDisplay('7')">7</button>
+                <button class="btn number" onclick="appendToDisplay('8')">8</button>
+                <button class="btn number" onclick="appendToDisplay('9')">9</button>
+                <button class="btn operator" onclick="appendToDisplay('*')">*</button>
+
+                <button class="btn number" onclick="appendToDisplay('4')">4</button>
+                <button class="btn number" onclick="appendToDisplay('5')">5</button>
+                <button class="btn number" onclick="appendToDisplay('6')">6</button>
+                <button class="btn operator" onclick="appendToDisplay('-')">-</button>
+
+                <button class="btn number" onclick="appendToDisplay('1')">1</button>
+                <button class="btn number" onclick="appendToDisplay('2')">2</button>
+                <button class="btn number" onclick="appendToDisplay('3')">3</button>
+                <button class="btn operator" onclick="appendToDisplay('+')">+</button>
+
+                <button class="btn number zero" onclick="appendToDisplay('0')">0</button>
+                <button class="btn number" onclick="appendToDisplay('.')">.</button>
+                <button class="btn equals" onclick="calculate()">=</button>
+            </div>
+        </div>
+
+        <!-- History Panel -->
+        <div class="history-panel">
+            <div class="history-header">
+                <h2>📜 History</h2>
+                <button class="clear-btn" onclick="clearHistory()">Clear</button>
+            </div>
+            <ul id="history-list">
+                {% for item in history %}
+                <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Get display element
+        const display = document.getElementById('display');
+        const historyList = document.getElementById('history-list');
+
+        // Append character to display
+        function appendToDisplay(value) {
+            display.value += value;
+        }
+
+        // Clear the display
+        function clearDisplay() {
+            display.value = '';
+        }
+
+        // Remove last character
+        function backspace() {
+            display.value = display.value.slice(0, -1);
+        }
+
+        // Calculate result by sending to Python backend
+        function calculate() {
+            const expression = display.value;
+
+            if (expression === '') return;
+
+            // Send request to Flask backend
+            fetch('/calculate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ expression: expression })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Show result
+                        display.value = data.result;
+
+                        // Update history
+                        updateHistory(data.history);
+                    } else {
+                        // Show error
+                        alert(data.error);
+                        display.value = '';
+                    }
+                })
+                .catch(error => {
+                    alert('Error calculating!');
+                });
+        }
+
+        // Update history list
+        function updateHistory(history) {
+            historyList.innerHTML = '';
+            history.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = item;
+                historyList.appendChild(li);
+            });
+            // Scroll to bottom
+            historyList.scrollTop = historyList.scrollHeight;
+        }
+
+        // Clear history
+        function clearHistory() {
+            fetch('/clear-history', {
+                method: 'POST'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        historyList.innerHTML = '';
+                    }
+                });
+        }
+
+        // Keyboard support
+        document.addEventListener('keydown', function (event) {
+            const key = event.key;
+
+            if ('0123456789+-*/.%'.includes(key)) {
+                appendToDisplay(key);
+            } else if (key === 'Enter') {
+                calculate();
+            } else if (key === 'Backspace') {
+                backspace();
+            } else if (key === 'Escape') {
+                clearDisplay();
+            }
+        });
+    </script>
+</body>
+
+</html>
